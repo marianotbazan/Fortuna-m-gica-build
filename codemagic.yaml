@@ -1,0 +1,65 @@
+# Receta de Codemagic para compilar Fortuna Mágica para iPhone y subirlo a TestFlight.
+# ⚠️ Sin probar: puede necesitar ajustes. Completá los valores marcados con ⚠️.
+workflows:
+  ios-release:
+    name: Fortuna Mágica iOS
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: Codemagic   # ⚠️ nombre que le pongas a tu clave de App Store Connect en Codemagic
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.marianobazan.fortunamagica   # el mismo de capacitor.config.json
+      vars:
+        ADMOB_APP_ID: "ca-app-pub-7854858972816820~1807188995"
+      node: 20
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Organizar archivos (index.html e icon.png están sueltos en la raíz del repo)
+        script: |
+          mkdir -p www resources
+          cp index.html www/index.html
+          cp native.js www/native.js
+          cp privacidad.html www/privacidad.html
+          cp terminos.html www/terminos.html
+          cp icon.png resources/icon.png
+      - name: Instalar dependencias
+        script: npm install
+      - name: Agregar proyecto iOS
+        script: npx cap add ios
+      - name: Generar ícono de la app (desde resources/icon.png)
+        script: npx @capacitor/assets generate --iconBackgroundColor '#0c1030' --iconBackgroundColorDark '#0c1030' --ios
+      - name: Configurar permisos y anuncios (Info.plist)
+        script: |
+          PLIST=ios/App/App/Info.plist
+          PB=/usr/libexec/PlistBuddy
+          $PB -c "Add :GADApplicationIdentifier string $ADMOB_APP_ID" $PLIST
+          $PB -c "Add :NSUserTrackingUsageDescription string 'Usamos tu identificador para mostrarte anuncios más relevantes.'" $PLIST
+          $PB -c "Delete :UISupportedInterfaceOrientations" $PLIST
+          $PB -c "Add :UISupportedInterfaceOrientations array" $PLIST
+          $PB -c "Add :UISupportedInterfaceOrientations:0 string UIInterfaceOrientationPortrait" $PLIST
+          $PB -c "Add :SKAdNetworkItems array" $PLIST
+          $PB -c "Add :SKAdNetworkItems:0 dict" $PLIST
+          $PB -c "Add :SKAdNetworkItems:0:SKAdNetworkIdentifier string cstr6suwn9.skadnetwork" $PLIST
+          # ⚠️ Agregá el resto de SKAdNetworkItems de la lista oficial de Google AdMob
+      - name: Sincronizar Capacitor
+        script: npx cap sync ios
+      - name: Instalar Pods
+        script: cd ios/App && pod install
+      - name: Preparar firma
+        script: xcode-project use-profiles
+      - name: Número de compilación
+        script: cd ios/App && agvtool new-version -all $BUILD_NUMBER
+      - name: Generar .ipa
+        script: |
+          xcode-project build-ipa \
+            --workspace "ios/App/App.xcworkspace" \
+            --scheme "App"
+    artifacts:
+      - build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true

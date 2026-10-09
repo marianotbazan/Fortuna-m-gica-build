@@ -1,0 +1,776 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Fortuna Mágica</title>
+<style>
+:root{
+  --bg0:#0c1030; --bg1:#171c4a; --bg2:#242a6e;
+  --gold:#ffd24d; --gold2:#fff6c8;
+  --ink:#f2f3ff; --inkdim:#aab0e0;
+  --p1:#4fd1ff; --p2:#ff5d7a; --p3:#7bf07b;
+  --start:#00e5ff; --chest:#ffcc00; --trap:#ff1744; --portal:#e000ff; --star:#ffee00; --duel:#ff6d00; --meta:#00e676;
+  --panel:rgba(18,16,55,.85); --line:rgba(255,210,77,.35);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;}
+html,body{margin:0;padding:0;height:100%;background:var(--bg0);overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:var(--ink);}
+#app{position:fixed;inset:0;overflow:hidden;}
+.screen{position:absolute;inset:0;display:flex;flex-direction:column;background:radial-gradient(1100px 760px at 50% -8%, #2c2f86 0%, var(--bg1) 45%, var(--bg0) 100%);}
+.lights{position:absolute;inset:0;overflow:hidden;pointer-events:none;}
+.lightdot{position:absolute;width:8px;height:8px;border-radius:50%;filter:blur(1px);animation:blink 1.6s ease-in-out infinite;}
+@keyframes blink{0%,100%{opacity:.25;transform:scale(.8);}50%{opacity:1;transform:scale(1.2);}}
+.bgfx{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0;}
+.blob{position:absolute;border-radius:50%;filter:blur(50px);opacity:.38;will-change:transform;animation:drift ease-in-out infinite alternate;}
+@keyframes drift{0%{transform:translate(0,0) scale(1);}100%{transform:translate(var(--dx),var(--dy)) scale(1.18);}}
+.spark{position:absolute;bottom:-6%;border-radius:50%;will-change:transform,opacity;animation:rise linear infinite;}
+@keyframes rise{0%{transform:translateY(0) translateX(0);opacity:0;}8%{opacity:.9;}92%{opacity:.5;}100%{transform:translateY(-118vh) translateX(var(--sx));opacity:0;}}
+.title{font-family:Georgia,'Times New Roman',serif;letter-spacing:2px;text-transform:uppercase;font-weight:800;
+  background:linear-gradient(180deg,var(--gold2),var(--gold) 55%,#c98f1f);-webkit-background-clip:text;background-clip:text;color:transparent;
+  text-shadow:0 0 22px rgba(255,210,77,.4);}
+.btn{font-family:Georgia,serif;letter-spacing:.5px;border:1px solid var(--line);border-radius:16px;
+  background:linear-gradient(180deg,rgba(255,255,255,.1),rgba(0,0,0,.25));color:var(--gold2);
+  padding:14px 18px;font-size:16px;text-align:center;box-shadow:0 6px 16px rgba(0,0,0,.4);transition:transform .08s;}
+.btn:active{transform:scale(.95);}
+.btn.primary{background:linear-gradient(180deg,#ff8a3d,#c9501c);border-color:var(--gold);color:#fff;box-shadow:0 0 18px rgba(255,138,61,.4),0 6px 16px rgba(0,0,0,.5);}
+.btn.ghost{background:transparent;}
+.btn[disabled]{opacity:.4;}
+.col{display:flex;flex-direction:column;gap:10px;}
+.row{display:flex;gap:10px;}
+.center{display:flex;flex-direction:column;align-items:center;text-align:center;}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;}
+.coincount{display:flex;align-items:center;gap:6px;background:rgba(0,0,0,.35);border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-weight:700;color:var(--gold2);}
+.coin-ic{width:15px;height:15px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff6c8,var(--gold) 60%,#c98f1f);box-shadow:0 0 8px var(--gold);}
+.scroll{overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch;}
+.worldcard{border:1px solid var(--line);border-radius:18px;padding:16px;background:var(--panel);display:flex;gap:14px;align-items:center;margin-bottom:12px;}
+.worldcard.locked{opacity:.5;}
+.worldorb{width:60px;height:60px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;box-shadow:0 0 18px currentColor;}
+.boardwrap{flex:1;position:relative;display:flex;flex-direction:column;}
+.boardgrid{display:grid;grid-template-columns:repeat(5,1fr);grid-template-rows:repeat(6,1fr);gap:6px;width:min(96vw,460px);aspect-ratio:5/6;margin:6px auto;position:relative;}
+.tile{position:relative;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#1a1026;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.18);transition:transform .12s;}
+.tile .ticon{font-size:26px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.35));}
+@keyframes tilepop{0%{transform:scale(1);}45%{transform:scale(1.32);}100%{transform:scale(1);}}
+.tile.pop{animation:tilepop .4s cubic-bezier(.3,1.6,.5,1);z-index:2;}
+.tokenlayer{position:absolute;inset:0;pointer-events:none;}
+.token{position:absolute;width:16%;height:16%;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  transition:left .2s cubic-bezier(.4,1.4,.6,1), top .2s cubic-bezier(.4,1.4,.6,1);box-shadow:0 0 14px currentColor,0 0 2px #fff;border:2px solid rgba(255,255,255,.6);}
+@keyframes tokenbounce{0%,100%{transform:scale(1) translateY(0);}35%{transform:scale(1.4,.7) translateY(2px);}60%{transform:scale(.85,1.25) translateY(-10px);}80%{transform:scale(1.08,.95) translateY(0);}}
+.token.bounce{animation:tokenbounce .45s ease;}
+@keyframes shake{0%,100%{transform:translateX(0);}20%{transform:translateX(-10px) rotate(-.5deg);}40%{transform:translateX(9px) rotate(.5deg);}60%{transform:translateX(-7px);}80%{transform:translateX(5px);}}
+.screen.shake{animation:shake .4s ease;}
+@keyframes popText{0%{transform:scale(.4) translateY(10px);opacity:0;}55%{transform:scale(1.25);opacity:1;}100%{transform:scale(1) translateY(0);}}
+.popanim{animation:popText .35s cubic-bezier(.3,1.6,.5,1);}
+.hud{display:flex;justify-content:space-around;padding:6px 10px;gap:6px;}
+.playerchip{display:flex;flex-direction:column;align-items:center;gap:2px;background:rgba(0,0,0,.3);border-radius:12px;padding:5px 9px;font-size:11px;border:1px solid transparent;}
+.playerchip.active{border-color:var(--gold);box-shadow:0 0 10px var(--gold);}
+.playerchip .hearts{font-size:10px;letter-spacing:1px;}
+@keyframes heartbeat{0%,100%{transform:scale(1);}50%{transform:scale(1.2);}}
+.playerchip.lowlife .hearts{animation:heartbeat .7s infinite;}
+.dot{width:12px;height:12px;border-radius:50%;box-shadow:0 0 6px currentColor;}
+.diewrap{display:flex;flex-direction:column;align-items:center;gap:6px;margin:10px 0;}
+.die3d{width:66px;height:66px;perspective:320px;margin:0 auto;}
+.cube{position:relative;width:100%;height:100%;transform-style:preserve-3d;transition:transform .72s cubic-bezier(.2,.75,.25,1);}
+.face{position:absolute;inset:0;border-radius:15px;background:linear-gradient(145deg,#fff,#e4e4f2);
+  box-shadow:0 0 0 3px var(--gold) inset,0 8px 16px rgba(0,0,0,.35);
+  display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);padding:10px;}
+.face .pip{width:9px;height:9px;border-radius:50%;background:#1a1026;margin:auto;opacity:0;}
+.face .pip.on{opacity:1;}
+.face.front{transform:translateZ(33px);}
+.face.back{transform:rotateY(180deg) translateZ(33px);}
+.face.top{transform:rotateX(90deg) translateZ(33px);}
+.face.bottom{transform:rotateX(-90deg) translateZ(33px);}
+.face.right{transform:rotateY(90deg) translateZ(33px);}
+.face.left{transform:rotateY(-90deg) translateZ(33px);}
+.overlay{position:absolute;inset:0;background:rgba(5,4,20,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;z-index:40;}
+.confetti{position:absolute;width:8px;height:14px;top:-20px;border-radius:2px;animation:fall linear forwards;}
+@keyframes fall{to{transform:translateY(120vh) rotate(540deg);opacity:0;}}
+.flash{position:absolute;inset:0;pointer-events:none;opacity:0;z-index:30;}
+.flash.go{animation:flashgo .5s ease-out;}
+@keyframes flashgo{0%{opacity:.55;}100%{opacity:0;}}
+.overlay h2{text-align:center;}
+.small{font-size:12px;color:var(--inkdim);}
+.toggle{width:46px;height:26px;border-radius:14px;background:rgba(0,0,0,.4);border:1px solid var(--line);position:relative;}
+.toggle .knob{position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:var(--gold);transition:left .15s;}
+.toggle.on .knob{left:22px;background:var(--gold2);}
+.skinbtn{width:52px;height:52px;border-radius:50%;border:2px solid transparent;display:flex;align-items:center;justify-content:center;}
+.skinbtn.sel{border-color:var(--gold);box-shadow:0 0 12px var(--gold);}
+h1,h2,h3{font-family:Georgia,serif;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script src="native.js"></script>
+<script>
+/* ===================== SAVE ===================== */
+const SAVE_KEY='fortuna_save_v2';
+function defaultSave(){return{
+  coins:60, worldsUnlocked:1, soundOn:true, musicOn:true, removeAds:false, skin:'gema',
+  xp:0, level:1,
+  stats:{racesPlayed:0, racesWon:0, duelsWon:0, chestsOpened:0, starsCollected:0},
+  winStreak:0, bestWinStreak:0,
+  lastLoginDate:null, loginStreak:0,
+  daily:{date:null, missions:[], snapshot:{}, claimed:[]},
+  achClaimed:[],
+  hardMode:false
+};}
+function loadSave(){ try{const r=JSON.parse(localStorage.getItem(SAVE_KEY)); return r?Object.assign(defaultSave(),r):defaultSave();}catch(e){return defaultSave();} }
+function persist(){ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); }
+let S=loadSave();
+
+/* ===================== AUDIO ===================== */
+const Aud=(function(){
+  let ctx=null, master=null, padOn=false, padTimer=null;
+  function ac(){ if(!ctx){ ctx=new (window.AudioContext||window.webkitAudioContext)(); master=ctx.createGain(); master.gain.value=.5; master.connect(ctx.destination);} return ctx; }
+  function tone(freq,dur,type,vol,delay){ if(!S.soundOn) return; const c=ac(); const t0=c.currentTime+(delay||0);
+    const o=c.createOscillator(), g=c.createGain(); o.type=type||'sine'; o.frequency.setValueAtTime(freq,t0);
+    g.gain.setValueAtTime(0,t0); g.gain.linearRampToValueAtTime(vol||.2,t0+.01); g.gain.exponentialRampToValueAtTime(.001,t0+dur);
+    o.connect(g); g.connect(master); o.start(t0); o.stop(t0+dur+.02); }
+  function noise(dur,vol,delay){ if(!S.soundOn) return; const c=ac(); const t0=c.currentTime+(delay||0);
+    const buf=c.createBuffer(1,c.sampleRate*dur,c.sampleRate); const d=buf.getChannelData(0);
+    for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*(1-i/d.length);
+    const src=c.createBufferSource(); src.buffer=buf; const g=c.createGain(); g.gain.setValueAtTime(vol||.2,t0); g.gain.exponentialRampToValueAtTime(.001,t0+dur);
+    src.connect(g); g.connect(master); src.start(t0); }
+  function sfx(type){
+    if(type==='click') tone(560,.08,'triangle',.15);
+    else if(type==='roll'){ for(let i=0;i<4;i++) noise(.05,.1,i*.06); }
+    else if(type==='hop') tone(420,.07,'square',.12);
+    else if(type==='coin'){ tone(1100,.09,'triangle',.16); tone(1500,.09,'triangle',.12,.05); }
+    else if(type==='trap'){ noise(.2,.2); tone(140,.2,'sawtooth',.16); }
+    else if(type==='portal'){ tone(300,.3,'sine',.12); tone(900,.3,'sine',.1,.1); }
+    else if(type==='star') { [700,900,1200].forEach((f,i)=>tone(f,.12,'triangle',.14,i*.07)); }
+    else if(type==='duel'){ tone(200,.15,'square',.18); tone(260,.15,'square',.14,.08); }
+    else if(type==='win'){ [523,659,784,1047,1319].forEach((f,i)=>tone(f,.3,'triangle',.18,i*.1)); }
+    else if(type==='lose'){ [392,330,262].forEach((f,i)=>tone(f,.35,'sawtooth',.15,i*.15)); }
+    else if(type==='reward') { tone(880,.14,'triangle',.16); tone(1100,.16,'triangle',.13,.07); }
+  }
+  function startPad(){ stopRace(); if(padOn||!S.musicOn) return; padOn=true; ac();
+    const notes=[392,440,494,523,587,523,494,440]; let i=0;
+    function loop(){ if(!padOn) return; const f=notes[i%notes.length]; i++;
+      tone(f,.9,'triangle',.05); tone(f*1.5,.6,'sine',.03,.1); padTimer=setTimeout(loop,480); }
+    loop(); }
+  function stopPad(){ padOn=false; if(padTimer) clearTimeout(padTimer); }
+
+  let raceOn=false, raceTimer=null;
+  function startRace(){ stopPad(); if(raceOn||!S.musicOn) return; raceOn=true; ac();
+    const notes=[220,220,262,220,246,196,220,164]; let i=0;
+    function loop(){ if(!raceOn) return; const f=notes[i%notes.length]; i++;
+      tone(f,.16,'sawtooth',.055);
+      if(i%2===0) tone(55,.3,'sine',.09);
+      if(i%4===0) noise(.05,.05);
+      raceTimer=setTimeout(loop,180); }
+    loop(); }
+  function stopRace(){ raceOn=false; if(raceTimer) clearTimeout(raceTimer); }
+  return {sfx,startPad,stopPad,startRace,stopRace};
+})();
+
+/* ===================== DATA ===================== */
+const TILE_COLORS={ start:'#6bd0ff', blank:'#3a3f8a', chest:'var(--chest)', trap:'var(--trap)', portal:'var(--portal)', star:'var(--star)', duel:'var(--duel)', meta:'var(--meta)' };
+const TILE_ICON={ start:'🏁', blank:'', chest:'💰', trap:'⚡', portal:'🌀', star:'✦', duel:'⚔', meta:'🏆' };
+const WORLDS=[
+  {id:0,name:'Isla Tropical',bg1:'#0c3b3a',bg2:'#0a6b5c',accent:'#3de8c0',seed:1001,trapW:2,duelW:1},
+  {id:1,name:'Cumbres Heladas',bg1:'#0b2440',bg2:'#1a5a8a',accent:'#7fd6ff',seed:2002,trapW:3,duelW:2},
+  {id:2,name:'Volcán Ardiente',bg1:'#3a0e0a',bg2:'#8a2a12',accent:'#ff8a3d',seed:3003,trapW:4,duelW:2},
+  {id:3,name:'Castillo del Cielo',bg1:'#1c0e3a',bg2:'#4a1e7a',accent:'#ffd24d',seed:4004,trapW:3,duelW:3},
+  {id:4,name:'Desierto de Cristal',bg1:'#3a2a0a',bg2:'#8a6a1a',accent:'#ffe14d',seed:5005,trapW:4,duelW:3},
+  {id:5,name:'Pantano Encantado',bg1:'#0a2a1a',bg2:'#1a5a3a',accent:'#7bffa0',seed:6006,trapW:5,duelW:3},
+  {id:6,name:'Arrecife Abismal',bg1:'#0a1a3a',bg2:'#1a3a8a',accent:'#4fd1ff',seed:7007,trapW:5,duelW:4},
+  {id:7,name:'Trono Celestial',bg1:'#2a0a3a',bg2:'#6a1a8a',accent:'#e000ff',seed:8008,trapW:6,duelW:4}
+];
+const SKINS={
+  gema:{color:'#4fd1ff', shape:'circle'},
+  llama:{color:'#ff8a3d', shape:'circle'},
+  hoja:{color:'#7bf07b', shape:'circle'},
+  estrella:{color:'#ffd24d', shape:'circle'}
+};
+const PLAYER_COLORS=['#4fd1ff','#ff5d7a','#7bf07b'];
+
+/* ===================== RNG ===================== */
+function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+
+/* ===================== 3D DIE ===================== */
+const FACE_NUM={front:1,back:6,top:2,bottom:5,right:3,left:4};
+const FACE_ANGLE={1:{x:0,y:0},2:{x:-90,y:0},3:{x:0,y:-90},4:{x:0,y:90},5:{x:90,y:0},6:{x:0,y:180}};
+const PIP_LAYOUT={1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]};
+function buildDie3D(rot){
+  const wrap=el('div','die3d'); const cube=el('div','cube');
+  const r=rot||{x:0,y:0}; cube.style.transform='rotateX('+r.x+'deg) rotateY('+r.y+'deg)';
+  Object.keys(FACE_NUM).forEach(cls=>{
+    const n=FACE_NUM[cls]; const face=el('div','face '+cls); const active=PIP_LAYOUT[n];
+    for(let i=0;i<9;i++){ face.appendChild(el('div','pip'+(active.includes(i)?' on':''))); }
+    cube.appendChild(face);
+  });
+  wrap.appendChild(cube);
+  return wrap;
+}
+function nextDieAngle(current,targetMod){
+  targetMod=((targetMod%360)+360)%360;
+  let v=Math.floor(current/360)*360+targetMod;
+  while(v<=current) v+=360;
+  v+=360*(1+Math.floor(Math.random()*2));
+  return v;
+}
+function spinDieTo(roll){
+  const cur=M.dieRot||{x:0,y:0}; const f=FACE_ANGLE[roll];
+  M.dieRot={x:nextDieAngle(cur.x,f.x), y:nextDieAngle(cur.y,f.y)};
+}
+
+/* Board generation: 30 tiles, boustrophedon 5 cols x 6 rows */
+const COLS=5, ROWS=6, NTILES=COLS*ROWS;
+function tilePos(i){
+  const r=Math.floor(i/COLS); let c=i%COLS; if(r%2===1) c=COLS-1-c;
+  return {row: ROWS-r, col:c+1}; // CSS grid 1-indexed, row1 = top
+}
+function genBoard(world){
+  const rng=mulberry32(world.seed);
+  const types=new Array(NTILES).fill('blank');
+  types[0]='start'; types[NTILES-1]='meta';
+  const pool=[]; for(let i=1;i<NTILES-1;i++) pool.push(i);
+  function pick(n){ const res=[]; for(let k=0;k<n && pool.length;k++){ const idx=Math.floor(rng()*pool.length); res.push(pool.splice(idx,1)[0]); } return res; }
+  pick(5).forEach(i=>types[i]='chest');
+  pick(world.trapW+2).forEach(i=>types[i]='trap');
+  pick(world.duelW+1).forEach(i=>types[i]='duel');
+  pick(3).forEach(i=>types[i]='star');
+  const portals=pick(2); portals.forEach(i=>types[i]='portal');
+  return {types, portalPair: portals};
+}
+
+/* ===================== PROGRESIÓN: nivel, rachas, misiones, logros ===================== */
+function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function xpForLevel(lv){ return 40+lv*35; }
+function addXp(n){
+  S.xp+=n;
+  let leveled=false;
+  while(S.xp>=xpForLevel(S.level)){ S.xp-=xpForLevel(S.level); S.level++; S.coins+=15+S.level*3; leveled=true; }
+  persist();
+  return leveled;
+}
+// racha de ingreso diario: se llama una vez al arrancar la app
+function checkLoginStreak(){
+  const today=todayStr();
+  if(S.lastLoginDate===today) return null;
+  let streak=1;
+  if(S.lastLoginDate){
+    const prev=new Date(S.lastLoginDate+'T00:00:00'), tod=new Date(today+'T00:00:00');
+    const diffDays=Math.round((tod-prev)/86400000);
+    streak = diffDays===1 ? (S.loginStreak%7)+1 : 1;
+  }
+  S.loginStreak=streak; S.lastLoginDate=today;
+  const bonus=10+streak*5;
+  S.coins+=bonus; persist();
+  return {streak,bonus};
+}
+const MISSION_POOL=[
+  {id:'play1', desc:'Jugá 1 carrera', stat:'racesPlayed', target:1, reward:15},
+  {id:'play3', desc:'Jugá 3 carreras', stat:'racesPlayed', target:3, reward:30},
+  {id:'win1', desc:'Ganá 1 carrera', stat:'racesWon', target:1, reward:25},
+  {id:'chest3', desc:'Abrí 3 cofres', stat:'chestsOpened', target:3, reward:20},
+  {id:'duel2', desc:'Ganá 2 duelos', stat:'duelsWon', target:2, reward:25},
+  {id:'star2', desc:'Conseguí 2 estrellas de poder', stat:'starsCollected', target:2, reward:20}
+];
+function ensureDaily(){
+  const today=todayStr();
+  if(S.daily.date===today) return;
+  const rng=mulberry32(parseInt(today.replace(/-/g,''),10));
+  const pool=MISSION_POOL.slice();
+  const picked=[];
+  while(picked.length<3 && pool.length){ picked.push(pool.splice(Math.floor(rng()*pool.length),1)[0]); }
+  S.daily={date:today, missions:picked, snapshot:Object.assign({},S.stats), claimed:[]};
+  persist();
+}
+function missionProgress(m){ return Math.max(0, (S.stats[m.stat]||0) - (S.daily.snapshot[m.stat]||0)); }
+function claimMission(id){
+  const m=S.daily.missions.find(x=>x.id===id); if(!m||S.daily.claimed.includes(id)) return;
+  if(missionProgress(m)<m.target) return;
+  S.coins+=m.reward; S.daily.claimed.push(id); addXp(Math.round(m.reward/2)); persist();
+}
+const ACHIEVEMENTS=[
+  {id:'a1', desc:'Jugá tu primera carrera', stat:'racesPlayed', target:1, reward:15},
+  {id:'a2', desc:'Jugá 10 carreras', stat:'racesPlayed', target:10, reward:40},
+  {id:'a3', desc:'Jugá 50 carreras', stat:'racesPlayed', target:50, reward:120},
+  {id:'a4', desc:'Ganá 5 carreras', stat:'racesWon', target:5, reward:50},
+  {id:'a5', desc:'Ganá 25 carreras', stat:'racesWon', target:25, reward:150},
+  {id:'a6', desc:'Abrí 20 cofres', stat:'chestsOpened', target:20, reward:60},
+  {id:'a7', desc:'Ganá 15 duelos', stat:'duelsWon', target:15, reward:70},
+  {id:'a8', desc:'Conseguí 15 estrellas de poder', stat:'starsCollected', target:15, reward:60}
+];
+function claimAchievement(id){
+  const a=ACHIEVEMENTS.find(x=>x.id===id); if(!a||S.achClaimed.includes(id)) return;
+  if((S.stats[a.stat]||0)<a.target) return;
+  S.coins+=a.reward; S.achClaimed.push(id); addXp(Math.round(a.reward/2)); persist();
+}
+
+/* ===================== ROUTER ===================== */
+let route={screen:'menu',params:{}};
+function go(screen,params){ route={screen,params:params||{}}; render(); }
+function render(){ const app=document.getElementById('app'); app.innerHTML=''; const fn=SCREENS[route.screen]; if(fn) app.appendChild(fn(route.params)); }
+function el(tag,cls,html){ const e=document.createElement(tag); if(cls) e.className=cls; if(html!=null) e.innerHTML=html; return e; }
+function lights(container,n){ const w=el('div','lights'); const palette=['#ffd24d','#ff5d7a','#4fd1ff','#7bf07b']; for(let i=0;i<(n||24);i++){ const d=el('div','lightdot'); d.style.left=(Math.random()*100)+'%'; d.style.top=(Math.random()*100)+'%'; d.style.background=palette[i%palette.length]; d.style.animationDelay=(Math.random()*1.6)+'s'; w.appendChild(d);} container.appendChild(w); }
+function bgFx(container,colors,seed){
+  // seed!=null => deterministic placement (used on screens that re-render often,
+  // like the match board, so repeated redraws don't make the blobs "jump").
+  const rnd= seed!=null ? mulberry32(seed) : Math.random;
+  const w=el('div','bgfx'); const palette=colors||['#ff8a3d','#4fd1ff','#b36bff','#7bf07b'];
+  const sizes=[220,260,190,240];
+  for(let i=0;i<4;i++){
+    const b=el('div','blob'); const size=sizes[i%sizes.length]+Math.floor(rnd()*60);
+    b.style.width=size+'px'; b.style.height=size+'px';
+    b.style.left=(rnd()*80)+'%'; b.style.top=(rnd()*80)+'%';
+    b.style.background='radial-gradient(circle,'+palette[i%palette.length]+',transparent 70%)';
+    b.style.setProperty('--dx',(rnd()*160-80)+'px'); b.style.setProperty('--dy',(rnd()*160-80)+'px');
+    b.style.animationDuration=(14+rnd()*10)+'s'; b.style.animationDelay=(rnd()*-10)+'s';
+    w.appendChild(b);
+  }
+  for(let i=0;i<14;i++){
+    const sp=el('div','spark'); const size=2+rnd()*3;
+    sp.style.width=size+'px'; sp.style.height=size+'px'; sp.style.left=(rnd()*100)+'%';
+    sp.style.background=palette[i%palette.length]; sp.style.boxShadow='0 0 6px currentColor';
+    sp.style.setProperty('--sx',(rnd()*60-30)+'px');
+    sp.style.animationDuration=(9+rnd()*8)+'s'; sp.style.animationDelay=(rnd()*-16)+'s';
+    w.appendChild(sp);
+  }
+  container.appendChild(w);
+}
+function confettiBurst(container,n){ const colors=['#ffd24d','#ff5d7a','#4fd1ff','#7bf07b','#b36bff']; for(let i=0;i<(n||40);i++){ const c=el('div','confetti'); c.style.left=(Math.random()*100)+'%'; c.style.background=colors[i%colors.length]; c.style.animationDuration=(1.2+Math.random()*1.2)+'s'; c.style.animationDelay=(Math.random()*.4)+'s'; container.appendChild(c); setTimeout(()=>c.remove(),2800); } }
+
+/* ===================== MENU ===================== */
+const SCREENS={};
+function hasClaimable(){
+  ensureDaily();
+  const dailyReady = S.daily.missions.some(m=>!S.daily.claimed.includes(m.id) && missionProgress(m)>=m.target);
+  const achReady = ACHIEVEMENTS.some(a=>!S.achClaimed.includes(a.id) && (S.stats[a.stat]||0)>=a.target);
+  return dailyReady||achReady;
+}
+SCREENS.menu=function(){
+  ensureDaily();
+  const s=el('div','screen'); bgFx(s,['#ff8a3d','#4fd1ff','#b36bff','#ffd24d']); lights(s,20);
+  const top=el('div','topbar');
+  const left=el('div','row'); left.style.gap='8px';
+  left.appendChild(el('div','coincount','<span class="coin-ic"></span>'+S.coins));
+  const lvl=el('div','coincount','⭐ Nv.'+S.level); lvl.style.color='var(--gold2)';
+  left.appendChild(lvl);
+  top.appendChild(left);
+  const set=el('div','btn ghost','⚙'); set.style.padding='8px 12px'; set.onclick=()=>{Aud.sfx('click');go('settings');};
+  top.appendChild(set); s.appendChild(top);
+
+  if(loginBanner){
+    const banner=el('div','small popanim', '🔥 Racha de '+loginBanner.streak+' día'+(loginBanner.streak===1?'':'s')+' · +'+loginBanner.bonus+' 💰 de regalo');
+    banner.style.textAlign='center'; banner.style.color='var(--gold2)'; banner.style.fontWeight='800'; banner.style.padding='4px 10px';
+    s.appendChild(banner);
+    loginBanner=null;
+  }
+
+  const mid=el('div','center'); mid.style.flex='1'; mid.style.justifyContent='center'; mid.style.gap='20px';
+  const orb=el('div','worldorb'); orb.style.width='100px'; orb.style.height='100px'; orb.style.background='radial-gradient(circle at 35% 30%,#fff6c8,var(--gold) 60%,#c98f1f)'; orb.style.color='var(--gold)'; orb.innerHTML='<span style="font-size:46px;">🎲</span>';
+  mid.appendChild(orb);
+  const h1=el('h1','title'); h1.style.fontSize='32px'; h1.style.margin='0'; h1.textContent='Fortuna Mágica';
+  mid.appendChild(h1);
+  mid.appendChild(el('div','small','La Gran Carrera • Tablero de aventura'));
+  if(S.winStreak>0) mid.appendChild(el('div','small','🔥 Racha de victorias: '+S.winStreak+' (mejor: '+S.bestWinStreak+')'));
+  const btns=el('div','col'); btns.style.width='78%'; btns.style.marginTop='8px';
+  const bPlay=el('div','btn primary','🎲 Jugar'); bPlay.onclick=()=>{Aud.sfx('click');Aud.startPad();go('worldselect');};
+  const bMissions=el('div','btn','🎯 Misiones'+(hasClaimable()?' ●':'')); bMissions.onclick=()=>{Aud.sfx('click');go('missions');};
+  const bShop=el('div','btn','💰 Tienda'); bShop.onclick=()=>{Aud.sfx('click');go('shop');};
+  const bHelp=el('div','btn ghost','📜 Cómo se juega'); bHelp.onclick=()=>{Aud.sfx('click');go('rules');};
+  btns.appendChild(bPlay); btns.appendChild(bMissions); btns.appendChild(bShop); btns.appendChild(bHelp);
+  mid.appendChild(btns);
+  s.appendChild(mid);
+  Aud.startPad();
+  return s;
+};
+
+SCREENS.rules=function(){
+  const s=el('div','screen'); bgFx(s,['#4fd1ff','#b36bff']); lights(s,8);
+  const top=el('div','topbar'); const back=el('div','btn ghost','←'); back.onclick=()=>go('menu'); top.appendChild(back); s.appendChild(top);
+  s.appendChild(el('h2','title',' Cómo se juega')).style.textAlign='center';
+  const wrap=el('div','scroll col'); wrap.style.padding='0 20px 20px'; wrap.style.gap='10px'; wrap.style.fontSize='14px'; wrap.style.lineHeight='1.5';
+  wrap.innerHTML=`
+    <p><b>Objetivo:</b> ser el primero en llegar a la Meta 🏆 recorriendo el tablero.</p>
+    <p>En tu turno, tocá el dado para tirar (1 a 6). Tu ficha avanza esa cantidad de casillas.</p>
+    <p><b>💰 Cofre Dorado:</b> ganás monedas.</p>
+    <p><b>⚡ Trampa:</b> retrocedés 2 casillas y perdés una ❤️ vida (a menos que tengas Escudo).</p>
+    <p><b>❤️ Vidas:</b> empezás con 3. Si te quedás sin vidas, podés usar monedas para revivir y seguir en la carrera, o rendirte.</p>
+    <p><b>🌀 Portal Mágico:</b> te teletransporta al otro portal del tablero — ¡puede ser un atajo o un retraso!</p>
+    <p><b>✦ Estrella de Poder:</b> te da un poder al azar: Escudo (te protege de la próxima trampa) o Turno Extra (tirás de nuevo).</p>
+    <p><b>⚔ Duelo:</b> desafiás al rival más cercano a una tirada rápida. El que saca más avanza 2, el que pierde retrocede 2.</p>
+    <p>Ganás monedas según tu posición final. Usalas en la Tienda para desbloquear fichas, o guardalas para revivir si te quedás sin vidas en una carrera.</p>
+  `;
+  s.appendChild(wrap);
+  return s;
+};
+
+/* ===================== WORLD SELECT ===================== */
+SCREENS.worldselect=function(){
+  const s=el('div','screen'); bgFx(s,['#3de8c0','#7fd6ff','#ff8a3d','#ffd24d']); lights(s,12);
+  const top=el('div','topbar'); const back=el('div','btn ghost','←'); back.onclick=()=>go('menu'); top.appendChild(back);
+  top.appendChild(el('div','coincount','<span class="coin-ic"></span>'+S.coins)); s.appendChild(top);
+  s.appendChild(el('h2','title',' Elegí un Mundo')).style.textAlign='center';
+  const wrap=el('div','col scroll'); wrap.style.padding='0 16px 16px';
+  if(S.hardModeUnlocked){
+    const hc=el('div','worldcard');
+    const info=el('div','col'); info.style.flex='1'; info.style.gap='2px';
+    info.appendChild(el('div',null,'<b>⚔ Modo Difícil</b>'));
+    info.appendChild(el('p','small','Más trampas y duelos, +50% de monedas. ¡Para seguir desafiándote!'));
+    hc.appendChild(info);
+    const t=el('div','toggle'+(S.hardMode?' on':'')); t.appendChild(el('div','knob'));
+    t.onclick=()=>{ S.hardMode=!S.hardMode; persist(); Aud.sfx('click'); go('worldselect'); };
+    hc.appendChild(t);
+    wrap.appendChild(hc);
+  }
+  WORLDS.forEach((w,idx)=>{
+    const unlocked= idx < S.worldsUnlocked;
+    const card=el('div','worldcard'+(unlocked?'':' locked'));
+    const orb=el('div','worldorb'); orb.style.background=w.accent; orb.style.color=w.accent; orb.innerHTML='<span style="font-size:24px;filter:grayscale(0) brightness(.2);">'+(idx+1)+'</span>';
+    card.appendChild(orb);
+    const info=el('div','col'); info.style.flex='1'; info.style.gap='2px';
+    info.appendChild(el('h3',null,w.name));
+    info.appendChild(el('p','small', unlocked? 'Tocá para jugar' : 'Ganá el mundo anterior para desbloquear'));
+    card.appendChild(info);
+    if(unlocked){ const go1=el('div','btn primary','Jugar'); go1.style.padding='10px 14px'; go1.onclick=()=>{Aud.sfx('click'); startMatch(idx);}; card.appendChild(go1); }
+    wrap.appendChild(card);
+  });
+  s.appendChild(wrap);
+  return s;
+};
+
+/* ===================== MATCH STATE ===================== */
+let M=null;
+function startMatch(worldIdx){
+  const base=WORLDS[worldIdx];
+  const hard = S.hardMode && S.hardModeUnlocked;
+  const world = hard ? Object.assign({}, base, {trapW:base.trapW+2, duelW:base.duelW+1}) : base;
+  const board=genBoard(world);
+  M={
+    worldIdx, world, board, hardMode:hard,
+    players:[
+      {id:0,name:'Vos',isBot:false,pos:0,color:SKINS[S.skin].color,shield:false},
+      {id:1,name:'Rival Rojo',isBot:true,pos:0,color:PLAYER_COLORS[1],shield:false},
+      {id:2,name:'Rival Verde',isBot:true,pos:0,color:PLAYER_COLORS[2],shield:false}
+    ],
+    turn:0, rolling:false, over:false, winnerId:null, lastRoll:null, animating:false, dieRot:{x:0,y:0}
+  };
+  M.players.forEach(p=>p.lives=3);
+  Aud.startRace();
+  go('match');
+}
+function giveUp(){
+  const rivals=M.players.filter(p=>p.id!==0);
+  const lead=rivals.reduce((a,b)=>a.pos>b.pos?a:b);
+  M.winnerId=lead.id; M.over=true; M.needsRevive=false; M.surrendered=true;
+  Aud.sfx('lose'); render();
+}
+function nearestRival(selfId){
+  let best=null,bestD=999;
+  M.players.forEach(p=>{ if(p.id!==selfId){ const d=Math.abs(p.pos-M.players[selfId].pos); if(d<bestD){bestD=d;best=p;} } });
+  return best;
+}
+function tileAt(i){ return M.board.types[Math.max(0,Math.min(NTILES-1,i))]; }
+function doDuel(player){
+  const rival=nearestRival(player.id); if(!rival) return;
+  const r1=1+Math.floor(Math.random()*6), r2=1+Math.floor(Math.random()*6);
+  Aud.sfx('duel');
+  if(r1>r2){ player.pos=Math.min(NTILES-1,player.pos+2); rival.pos=Math.max(0,rival.pos-2); if(player.id===0) S.stats.duelsWon++; }
+  else if(r2>r1){ rival.pos=Math.min(NTILES-1,rival.pos+2); player.pos=Math.max(0,player.pos-2); }
+  M.duelResult={a:player.name,b:rival.name,r1,r2};
+}
+function applyTile(player){
+  const t=tileAt(player.pos);
+  M.justLandedPos=player.pos; M.justMovedId=player.id;
+  if(t==='chest'){ const gain=8+Math.floor(Math.random()*10); if(!player.isBot){ S.coins+=gain; S.stats.chestsOpened++; persist(); } Aud.sfx('coin'); M.popup={text:'+'+gain+' 💰', color:'var(--gold)'}; M.flashColor='rgba(255,204,0,.35)'; if(!player.isBot) M.burst=true; }
+  else if(t==='trap'){
+    if(player.shield){ player.shield=false; M.popup={text:'Escudo bloqueó la trampa', color:'#7fd6ff'}; }
+    else {
+      player.pos=Math.max(0,player.pos-2);
+      player.lives=Math.max(0,player.lives-1);
+      Aud.sfx('trap'); M.shake=true; M.flashColor='rgba(255,23,68,.35)';
+      M.popup={text:'-2 ⚡ -1 ❤️', color:'var(--trap)'};
+      if(player.lives<=0){ if(player.isBot){ player.lives=1; } else { M.needsRevive=true; } }
+    }
+  }
+  else if(t==='portal'){ const pair=M.board.portalPair; const other= pair[0]===player.pos? pair[1]:pair[0]; player.pos=other; Aud.sfx('portal'); M.popup={text:'¡Portal!', color:'var(--portal)'}; M.flashColor='rgba(224,0,255,.3)'; }
+  else if(t==='star'){ Aud.sfx('star'); const r=Math.random()<0.5; if(r){ player.shield=true; M.popup={text:'✦ Escudo', color:'var(--star)'}; } else { player.extraTurn=true; M.popup={text:'✦ Turno Extra', color:'var(--star)'}; } M.flashColor='rgba(255,238,0,.3)'; if(!player.isBot){ M.burst=true; S.stats.starsCollected++; } }
+  else if(t==='duel'){ doDuel(player); M.popup={text:'¡Duelo!', color:'var(--duel)'}; M.flashColor='rgba(255,109,0,.3)'; }
+  else if(t==='meta'){ M.over=true; M.winnerId=player.id; Aud.sfx(player.isBot?'lose':'win'); }
+}
+function finishMatchRewards(){
+  const sorted=M.players.slice().sort((a,b)=>b.pos-a.pos);
+  const human=M.players[0];
+  let place=sorted.findIndex(p=>p.id===0);
+  let gain=0;
+  const won = !M.surrendered && M.winnerId===0;
+  if(M.surrendered){ place=M.players.length-1; gain=5; }
+  else if(won) gain=40+M.worldIdx*10;
+  else gain= place===1? 18 : 8;
+  if(M.hardMode) gain=Math.round(gain*1.5);
+  S.coins+=gain;
+  S.stats.racesPlayed++;
+  if(won){
+    S.stats.racesWon++;
+    S.winStreak++; S.bestWinStreak=Math.max(S.bestWinStreak,S.winStreak);
+  } else {
+    S.winStreak=0;
+  }
+  if(won && M.worldIdx===S.worldsUnlocked-1 && S.worldsUnlocked<WORLDS.length) S.worldsUnlocked++;
+  if(S.worldsUnlocked>=WORLDS.length) S.hardModeUnlocked=true;
+  const leveled=addXp(Math.round(gain/2));
+  persist();
+  return {gain, place:place+1, won, leveled};
+}
+
+SCREENS.match=function(){
+  const s=el('div','screen'+(M.shake?' shake':'')); bgFx(s,[M.world.accent,M.world.bg2],M.world.seed+777); const flash=el('div','flash'+(M.flashColor?' go':'')); if(M.flashColor) flash.style.background=M.flashColor; s.appendChild(flash);
+  s.style.background='radial-gradient(1100px 760px at 50% -8%,'+M.world.bg2+' 0%, '+M.world.bg1+' 55%, #05040f 100%)';
+  const top=el('div','topbar');
+  const back=el('div','btn ghost','✕'); back.onclick=()=>{ Aud.sfx('click'); Aud.startPad(); go('worldselect'); }; top.appendChild(back);
+  top.appendChild(el('div','small',M.world.name+(M.hardMode?' ⚔':'')));
+  top.appendChild(el('div','coincount','<span class="coin-ic"></span>'+S.coins));
+  s.appendChild(top);
+
+  const hud=el('div','hud');
+  M.players.forEach((p,i)=>{
+    const chip=el('div','playerchip'+(M.turn===i&&!M.over?' active':'')+(p.lives===1?' lowlife':''));
+    const d=el('div','dot'); d.style.background=p.color; d.style.color=p.color; chip.appendChild(d);
+    chip.appendChild(el('div',null,p.name+(p.shield?' 🛡':'')));
+    chip.appendChild(el('div','hearts','❤️'.repeat(Math.max(0,p.lives))+'🖤'.repeat(Math.max(0,3-p.lives))));
+    hud.appendChild(chip);
+  });
+  s.appendChild(hud);
+
+  const grid=el('div','boardgrid');
+  for(let i=0;i<NTILES;i++){
+    const t=M.board.types[i]; const pos=tilePos(i);
+    const tile=el('div','tile'+(M.justLandedPos===i?' pop':'')); tile.style.gridRow=pos.row; tile.style.gridColumn=pos.col;
+    tile.style.background=TILE_COLORS[t]; if(t==='blank'){ tile.style.background='rgba(255,255,255,.08)'; } else { tile.style.boxShadow='inset 0 0 0 1px rgba(255,255,255,.18), 0 0 14px '+TILE_COLORS[t]; }
+    if(TILE_ICON[t]) tile.appendChild(el('div','ticon',TILE_ICON[t]));
+    grid.appendChild(tile);
+  }
+  const tlayer=el('div','tokenlayer');
+  M.players.forEach(p=>{
+    const pos=tilePos(p.pos);
+    const tok=el('div','token'+(M.justMovedId===p.id?' bounce':'')); tok.style.background='radial-gradient(circle at 35% 30%,#fff,'+p.color+')'; tok.style.color=p.color;
+    tok.style.left=((pos.col-1)/COLS*100 + 100/COLS/2 - 8)+'%';
+    tok.style.top=((pos.row-1)/ROWS*100 + 100/ROWS/2 - 8)+'%';
+    tlayer.appendChild(tok);
+  });
+  grid.appendChild(tlayer);
+  s.appendChild(grid);
+
+  const dw=el('div','diewrap');
+  const die3d=buildDie3D(M.dieRot);
+  dw.appendChild(die3d);
+  const cur=M.players[M.turn];
+  const label=el('div','small', M.over? '' : (cur.isBot? cur.name+' está tirando…' : 'Tocá el dado para tirar'));
+  dw.appendChild(label);
+  s.appendChild(dw);
+
+  if(!M.over && !cur.isBot && !M.animating){
+    die3d.onclick=()=>{ Aud.sfx('click'); takeTurn(); };
+  }
+
+  if(M.popup){ const pop=el('div','small popanim',M.popup.text); pop.style.color=M.popup.color; pop.style.fontWeight='800'; pop.style.fontSize='18px'; pop.style.textAlign='center'; s.appendChild(pop); }
+
+  if(M.burst){ confettiBurst(s,18); M.burst=false; }
+
+  if(M.needsRevive){
+    const player=M.players[M.turn];
+    const ov=el('div','overlay');
+    ov.appendChild(el('h2','title','¡Sin vidas!'));
+    ov.appendChild(el('div','small',(player.isBot?player.name:'Te')+' quedó sin vidas en la carrera.'));
+    const bb=el('div','col'); bb.style.width='82%';
+    const canRevive=S.coins>=25;
+    const revive=el('div','btn primary', canRevive? 'Revivir (-25 💰)':'Necesitás 25 💰');
+    if(canRevive){
+      revive.onclick=()=>{
+        S.coins-=25; persist(); player.lives=3; player.shield=false; M.needsRevive=false; M.animating=false;
+        if(player.extraTurn){ player.extraTurn=false; } else { M.turn=(M.turn+1)%M.players.length; }
+        M.popup=null; M.shake=false; M.flashColor=null; Aud.sfx('reward'); render();
+      };
+    } else { revive.setAttribute('disabled','disabled'); revive.style.opacity='.4'; }
+    bb.appendChild(revive);
+    const giveup=el('div','btn ghost','Rendirme'); giveup.onclick=()=>giveUp();
+    bb.appendChild(giveup);
+    ov.appendChild(bb);
+    s.appendChild(ov);
+  }
+
+  if(M.over){
+    Aud.stopRace();
+    setTimeout(()=>go('matchend'),900);
+  } else if(cur.isBot && !M.animating && !M.needsRevive){
+    setTimeout(()=>takeTurn(),700);
+  }
+
+  return s;
+};
+
+function takeTurn(){
+  if(M.animating || M.over) return;
+  const player=M.players[M.turn];
+  const roll=1+Math.floor(Math.random()*6);
+  M.lastRoll=roll; M.animating=true; M.popup=null;
+  spinDieTo(roll);
+  render();
+  Aud.sfx('roll');
+  setTimeout(()=>{ animateMove(player, roll); },760);
+}
+function animateMove(player, steps){
+  let remaining=steps;
+  function step(){
+    if(remaining<=0 || player.pos>=NTILES-1){ afterMove(player); return; }
+    player.pos++; remaining--; M.justMovedId=player.id; Aud.sfx('hop'); render();
+    setTimeout(step,170);
+  }
+  step();
+}
+function afterMove(player){
+  applyTile(player);
+  render();
+  setTimeout(()=>{
+    M.shake=false; M.flashColor=null; M.justLandedPos=null;
+    if(M.needsRevive){ render(); return; }
+    M.animating=false;
+    if(M.over){ render(); return; }
+    if(player.extraTurn){ player.extraTurn=false; }
+    else { M.turn=(M.turn+1)%M.players.length; }
+    M.popup=null; M.justMovedId=null;
+    render();
+  },700);
+}
+
+SCREENS.matchend=function(){
+  Aud.startPad();
+  const s=el('div','screen center'); s.style.justifyContent='center'; bgFx(s,['#ffd24d','#7bf07b','#4fd1ff']); lights(s,16);
+  const r=finishMatchRewards();
+  if(r.won) confettiBurst(s,50);
+  s.appendChild(el('h2','title', r.won? '¡Ganaste la carrera!' : 'Carrera terminada'));
+  s.appendChild(el('div','small','Llegaste en el puesto '+r.place+(M.hardMode?' · ⚔ Modo Difícil':'')));
+  s.appendChild(el('div','coincount','<span class="coin-ic"></span>+'+r.gain)).style.marginTop='8px';
+  if(r.leveled){ const lv=el('div','small popanim','⭐ ¡Subiste a nivel '+S.level+'!'); lv.style.color='var(--gold2)'; lv.style.fontWeight='800'; lv.style.marginTop='6px'; s.appendChild(lv); }
+  if(S.winStreak>1){ s.appendChild(el('div','small','🔥 Racha de victorias: '+S.winStreak)); }
+  const btns=el('div','col'); btns.style.width='70%'; btns.style.marginTop='18px';
+  const again=el('div','btn primary','Jugar de nuevo'); again.onclick=()=>{Aud.sfx('click'); startMatch(M.worldIdx);};
+  const toWorlds=el('div','btn','Elegir mundo'); toWorlds.onclick=()=>{Aud.sfx('click'); Aud.startPad(); M=null; go('worldselect');};
+  btns.appendChild(again); btns.appendChild(toWorlds);
+  s.appendChild(btns);
+  return s;
+};
+
+/* ===================== MISIONES Y LOGROS ===================== */
+SCREENS.missions=function(){
+  ensureDaily();
+  const s=el('div','screen'); bgFx(s,['#ffd24d','#7fd6ff']); lights(s,10);
+  const top=el('div','topbar'); const back=el('div','btn ghost','←'); back.onclick=()=>go('menu'); top.appendChild(back);
+  top.appendChild(el('div','coincount','<span class="coin-ic"></span>'+S.coins)); s.appendChild(top);
+  s.appendChild(el('h2','title',' Misiones')).style.textAlign='center';
+  const wrap=el('div','col scroll'); wrap.style.padding='0 16px 24px';
+
+  wrap.appendChild(el('h3',null,'Hoy'));
+  S.daily.missions.forEach(m=>{
+    const prog=Math.min(m.target, missionProgress(m));
+    const done=prog>=m.target; const claimed=S.daily.claimed.includes(m.id);
+    const row=el('div','worldcard');
+    const info=el('div','col'); info.style.flex='1'; info.style.gap='2px';
+    info.appendChild(el('div',null,'<b>'+m.desc+'</b>'));
+    info.appendChild(el('div','small', prog+' / '+m.target+'  ·  +'+m.reward+' 💰'));
+    row.appendChild(info);
+    const bb=el('div','btn'+(done&&!claimed?' primary':''), claimed?'Hecho ✓':(done?'Reclamar':'...')); bb.style.padding='8px 12px';
+    if(done && !claimed){ bb.onclick=()=>{ Aud.sfx('reward'); claimMission(m.id); go('missions'); }; }
+    row.appendChild(bb);
+    wrap.appendChild(row);
+  });
+
+  wrap.appendChild(el('h3',null,'Logros'));
+  ACHIEVEMENTS.forEach(a=>{
+    const cur=Math.min(a.target, S.stats[a.stat]||0);
+    const done=cur>=a.target; const claimed=S.achClaimed.includes(a.id);
+    const row=el('div','worldcard');
+    const info=el('div','col'); info.style.flex='1'; info.style.gap='2px';
+    info.appendChild(el('div',null,'<b>'+a.desc+'</b>'));
+    info.appendChild(el('div','small', cur+' / '+a.target+'  ·  +'+a.reward+' 💰'));
+    row.appendChild(info);
+    const bb=el('div','btn'+(done&&!claimed?' primary':''), claimed?'Hecho ✓':(done?'Reclamar':'...')); bb.style.padding='8px 12px';
+    if(done && !claimed){ bb.onclick=()=>{ Aud.sfx('reward'); claimAchievement(a.id); go('missions'); }; }
+    row.appendChild(bb);
+    wrap.appendChild(row);
+  });
+
+  s.appendChild(wrap);
+  return s;
+};
+
+/* ===================== SHOP ===================== */
+SCREENS.shop=function(){
+  const s=el('div','screen'); bgFx(s,['#ffd24d','#b36bff']); lights(s,12);
+  const top=el('div','topbar'); const back=el('div','btn ghost','←'); back.onclick=()=>go('menu'); top.appendChild(back);
+  top.appendChild(el('div','coincount','<span class="coin-ic"></span>'+S.coins)); s.appendChild(top);
+  s.appendChild(el('h2','title',' Tienda')).style.textAlign='center';
+  const wrap=el('div','col scroll'); wrap.style.padding='0 16px 16px';
+
+  wrap.appendChild(el('h3',null,'Fichas'));
+  const skinsRow=el('div','row'); skinsRow.style.flexWrap='wrap'; skinsRow.style.gap='14px'; skinsRow.style.padding='6px 0';
+  Object.keys(SKINS).forEach(k=>{
+    const sk=SKINS[k];
+    const b=el('div','skinbtn'+(S.skin===k?' sel':'')); b.style.background='radial-gradient(circle at 35% 30%,#fff,'+sk.color+')';
+    b.onclick=()=>{ S.skin=k; persist(); Aud.sfx('click'); go('shop'); };
+    skinsRow.appendChild(b);
+  });
+  wrap.appendChild(skinsRow);
+
+  wrap.appendChild(el('h3',null,'Monedas'));
+  [[300,'fortuna_monedas_300'],[900,'fortuna_monedas_900'],[2500,'fortuna_monedas_2500']].forEach(([amt,pid])=>{
+    const row=el('div','worldcard');
+    row.appendChild(el('div','coin-ic'));
+    const info=el('div','col'); info.style.flex='1'; info.appendChild(el('div',null,'<b>'+amt+' monedas</b>'));
+    row.appendChild(info);
+    const bb=el('div','btn','Comprar'); bb.style.padding='8px 12px';
+    bb.onclick=async ()=>{ const ok= window.Native && Native.isNative ? await Native.buy(pid) : true; if(ok){ S.coins+=amt; persist(); Aud.sfx('reward'); go('shop'); } };
+    row.appendChild(bb);
+    wrap.appendChild(row);
+  });
+  if(!S.removeAds){
+    const row=el('div','worldcard');
+    row.appendChild(el('div','col',null)); row.lastChild.appendChild(el('div',null,'<b>Quitar anuncios</b>'));
+    const bb=el('div','btn','Comprar'); bb.style.padding='8px 12px';
+    bb.onclick=async ()=>{ const ok= window.Native && Native.isNative ? await Native.buy('fortuna_remove_ads') : true; if(ok){ S.removeAds=true; persist(); Aud.sfx('reward'); go('shop'); } };
+    row.appendChild(bb);
+    wrap.appendChild(row);
+  }
+  s.appendChild(wrap);
+  return s;
+};
+
+/* ===================== SETTINGS ===================== */
+SCREENS.settings=function(){
+  const s=el('div','screen'); bgFx(s,['#4fd1ff','#ff5d7a']); lights(s,8);
+  const top=el('div','topbar'); const back=el('div','btn ghost','←'); back.onclick=()=>go('menu'); top.appendChild(back); s.appendChild(top);
+  s.appendChild(el('h2','title',' Ajustes')).style.textAlign='center';
+  const wrap=el('div','col'); wrap.style.padding='0 20px';
+  function toggleRow(label,key){
+    const row=el('div','worldcard'); row.appendChild(el('div',null,'<b>'+label+'</b>'));
+    const t=el('div','toggle'+(S[key]?' on':'')); t.style.marginLeft='auto'; t.appendChild(el('div','knob'));
+    t.onclick=()=>{ S[key]=!S[key]; persist(); if(key==='musicOn'){ if(S.musicOn) Aud.startPad(); else Aud.stopPad(); } go('settings'); };
+    row.appendChild(t); return row;
+  }
+  wrap.appendChild(toggleRow('Sonido','soundOn'));
+  wrap.appendChild(toggleRow('Música','musicOn'));
+  const restore=el('div','btn','Restaurar compras'); restore.style.marginTop='10px';
+  restore.onclick=async ()=>{ if(window.Native&&Native.isNative){ const owned=await Native.restore(); if(owned.includes('fortuna_remove_ads')){S.removeAds=true;persist();} } };
+  wrap.appendChild(restore);
+  const reset=el('div','btn','Borrar progreso'); reset.style.marginTop='10px';
+  reset.onclick=()=>{ if(confirm('¿Borrar todo el progreso?')){ S=defaultSave(); persist(); go('menu'); } };
+  wrap.appendChild(reset);
+  const priv=el('div','small','<a href="privacidad.html" style="color:var(--gold2)">Política de privacidad</a> · <a href="terminos.html" style="color:var(--gold2)">Términos de uso</a>');
+  priv.style.marginTop='16px'; priv.style.textAlign='center';
+  wrap.appendChild(priv);
+  s.appendChild(wrap);
+  return s;
+};
+
+/* ===================== BOOT ===================== */
+let loginBanner=checkLoginStreak();
+ensureDaily();
+if(window.Native) Native.init && Native.init();
+go('menu');
+</script>
+</body>
+</html>

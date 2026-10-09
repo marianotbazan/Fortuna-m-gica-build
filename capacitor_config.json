@@ -1,0 +1,7 @@
+{
+  "appId": "com.marianobazan.fortunamagica",
+  "appName": "Fortuna Mágica",
+  "webDir": "www",
+  "ios": { "contentInset": "never", "backgroundColor": "#0c1030" },
+  "android": { "backgroundColor": "#0c1030" }
+}
